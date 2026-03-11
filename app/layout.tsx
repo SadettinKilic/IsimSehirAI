@@ -14,6 +14,9 @@ const outfit = Outfit({
   display: "swap",
 });
 
+// Vercel Serverless Function için maksimum çalışma süresi (saniye)
+export const maxDuration = 60;
+
 export const metadata: Metadata = {
   title: "İsimŞehirAI — Zeki Kelime Oyunu",
   description:

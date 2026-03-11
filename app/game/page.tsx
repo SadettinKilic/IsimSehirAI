@@ -115,6 +115,54 @@ function AnswerForm({ categories, letter, answers, onChange, onSubmit, isSubmitt
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// EVALUATING VIEW
+// ─────────────────────────────────────────────────────────────────────────────
+function EvaluatingView() {
+  const [msgIndex, setMsgIndex] = useState(0);
+
+  const messages = [
+    "AI hakem cevaplarınızı okuyor...",
+    "Biraz yoğunluk var, AI terliyor 😅",
+    "Hmm, bazı cevaplar çok yaratıcı (veya saçma) 🤔",
+    "Az kaldı, sunuculara su döküyoruz 🪣",
+    "Şu an dünyada çok fazla İsim Şehir oynanıyor 🌍",
+    "Sabrınız için teşekkürler, son kontroller yapılıyor 🚀"
+  ];
+
+  useEffect(() => {
+    // Her 5 saniyede bir mesajı değiştir (en son mesaja gelince durur)
+    const interval = setInterval(() => {
+      setMsgIndex((prev) => Math.min(prev + 1, messages.length - 1));
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [messages.length]);
+
+  return (
+    <main className="relative min-h-[100dvh] w-full flex items-center justify-center px-4">
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+        className="text-center flex flex-col items-center gap-6">
+        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+          className="w-16 h-16 rounded-full border-4 border-violet-500/30 border-t-violet-500" />
+        <div className="flex flex-col gap-2 min-h-[80px]">
+          <h2 className="text-2xl font-bold text-white">Değerlendiriliyor...</h2>
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={msgIndex}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="text-white/60 text-sm font-medium"
+            >
+              {messages[msgIndex]}
+            </motion.p>
+          </AnimatePresence>
+        </div>
+      </motion.div>
+    </main>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // GAME PAGE
 // ─────────────────────────────────────────────────────────────────────────────
 export default function GamePage() {
@@ -303,19 +351,7 @@ export default function GamePage() {
 
   // ── EVALUATING ──
   if (gameState === "evaluating") {
-    return (
-      <main className="relative min-h-[100dvh] w-full flex items-center justify-center px-4">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-          className="text-center flex flex-col items-center gap-6">
-          <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-            className="w-16 h-16 rounded-full border-4 border-violet-500/30 border-t-violet-500" />
-          <div>
-            <h2 className="text-2xl font-bold text-white mb-2">Değerlendiriliyor...</h2>
-            <p className="text-white/50 text-sm">AI hakem cevaplarınızı puanlandırıyor</p>
-          </div>
-        </motion.div>
-      </main>
-    );
+    return <EvaluatingView />;
   }
 
   // ── ROUND OVER (tur arası — artık "results" sayfasına gidildiği için bu kısım pratikte çalışmayacak ancak kalsın) ──
