@@ -211,6 +211,9 @@ function CreateRoomView({
 
       if (res.success && res.room) {
         useGameStore.getState().setRoom(res.room);
+        // localPlayer.isHost'u true yap — başlangıçta false set ediliyordu
+        const lp = useGameStore.getState().localPlayer;
+        if (lp) useGameStore.getState().setLocalPlayer({ ...lp, isHost: true });
         addToast({ type: "success", title: "Oda oluşturuldu!", message: `Kod: ${res.room.code}` });
         onCreated(res.room.code);
       } else {

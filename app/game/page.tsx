@@ -241,13 +241,16 @@ export default function GamePage() {
         const r = res.room;
         useGameStore.getState().setRoom(r);
 
-        // "evaluating" fazına geçildi → host AI değerlendirmesi yapacak
+        // "evaluating" fazına geçildi → HOST (id karşılaştırmasıyla) AI değerlendirmesi yapacak
+        // BUG FIX: localPlayer.isHost her zaman false; bunun yerine id === hostId kontrolü yap
+        const isHost = localPlayer?.id === r.hostId;
+
         if (r.currentPhase === "evaluating" && gameState === "playing" && !evaluatingRef.current) {
           evaluatingRef.current = true;
           setGameState("evaluating");
           setIsEvaluating(true);
 
-          if (localPlayer?.isHost && r.answers) {
+          if (isHost && r.answers) {
             const kullanicilar = r.players.map((p) => ({
               nick: p.nick,
               cevaplar: r.answers?.[p.id] ?? {},
@@ -259,26 +262,41 @@ export default function GamePage() {
               kullanicilar,
             };
 
-            const evalRes = await evaluateRound(input);
-            if (evalRes.success) {
-              const playerScores = evalRes.result.degerlendirme.map((p) => ({
-                nick: p.nick,
-                score: p.toplam,
-              }));
-              await updateScores(code, evalRes.result, playerScores);
+            let evalResult = null;
+            let playerScores: Array<{ nick: string; score: number }> = [];
+
+            try {
+              const evalRes = await evaluateRound(input);
+              if (evalRes.success) {
+                evalResult = evalRes.result;
+                playerScores = evalRes.result.degerlendirme.map((p) => ({
+                  nick: p.nick,
+                  score: p.toplam,
+                }));
+              } else {
+                // AI başarısız → herkes 0 puanla devam etsin
+                console.warn("[GamePage] AI evaluation başarısız:", evalRes.error);
+                playerScores = r.players.map((p) => ({ nick: p.nick, score: 0 }));
+              }
+            } catch (err) {
+              console.error("[GamePage] evaluateRound exception:", err);
+              playerScores = r.players.map((p) => ({ nick: p.nick, score: 0 }));
             }
+
+            // Her durumda updateScores çağır → faz "results"/"finished"e geçsin
+            await updateScores(code, evalResult, playerScores);
           }
         }
 
         // "results" fazı → ara sonuçlar sayfası
-        if (r.currentPhase === "results" && r.evaluation) {
+        if (r.currentPhase === "results" && r.evaluation !== undefined) {
           useGameStore.getState().setEvaluationResult(r.evaluation);
           useGameStore.getState().setRoom({ ...r, currentPhase: "lobby" as "lobby" });
           router.push("/game/results");
         }
 
         // "finished" fazı → podium
-        if (r.currentPhase === "finished" && r.evaluation) {
+        if (r.currentPhase === "finished" && r.evaluation !== undefined) {
           useGameStore.getState().setEvaluationResult(r.evaluation);
           router.push("/game/podium");
         }
