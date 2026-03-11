@@ -34,22 +34,24 @@ export async function evaluateRound(
   }
 
   const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+  const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
 
   const prompt = `Sen "İsim Şehir Hayvan" oyununun hakem yapay zekasısın. Türkçe konuşursun.
 
+'İ' ile 'I', 'U' ile 'Ü', 'O' ile 'Ö', 'C' ile 'Ç', 'S' ile 'Ş' birbirinin yerine geçer
 Verilen tur harfi: "${input.tur_harfi}"
 Kategoriler: ${input.kategoriler.join(", ")}
 
 Oyuncuların cevapları:
 ${JSON.stringify(input.kullanicilar, null, 2)}
 
-Puanlama kuralları:
-1. Cevap boşsa veya tur harfiyle başlamıyorsa: 0 puan
-2. Sadece bir oyuncu o cevabı verdiyse (benzersiz): 10 puan
-3. Birden fazla oyuncu aynı/çok benzer cevap verdiyse: 5 puan
-4. Yaratıcı, doğru ama nadir cevaplar için: 10 puan (benzersizlik değerlendirmesi dahil)
-5. Kısaltma veya yazım yanlışları için: toleranslı davran, cevabın özü doğruysa puan ver
+Puanlama kuralları (cevapları lowercase olarak incele):
+- Cevap, kategoriyle doğrudan ve net bir şekilde ilişkili olmalıdır (Örn: 'N' harfinde 'Bitki' kategorisine 'Narenciye' yazılamaz, çünkü bu bir gruptur, bir bitki adı değildir).
+- Cevap boşsa veya tur harfiyle başlamıyorsa: 0 puan
+- Sadece bir oyuncu o cevabı verdiyse (benzersiz): 10 puan
+- Birden fazla oyuncu aynı cevabı verdiyse: 5 puan
+- Türkçe dışındaki dillerde de olsa gerçek olduğu kanıtlanabilir olanlar kabul edilir.
+- Yazım yanlışları için: toleranslı olma, yanlış yazım 0 puan
 
 Şimdi YALNIZCA aşağıdaki JSON formatında yanıt ver. Başka hiçbir şey yazma:
 
@@ -58,7 +60,7 @@ Puanlama kuralları:
     {
       "nick": "OyuncuAdı",
       "puanlar": {
-        "Kategori": { "puan": 10, "gerekce": "Kısa açıklama" }
+        "Kategori": { "puan": 10, "gerekce": "Kısa açıklama(Sadece 1 cümle)" }
       },
       "toplam": 30
     }
