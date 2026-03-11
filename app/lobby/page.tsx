@@ -2,13 +2,12 @@
 
 import dynamic from "next/dynamic";
 import { AnimatePresence, motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { GlassPanel, Button, TextInput, Badge } from "@/components/ui";
 import { ToastContainer } from "@/components/ui/Toast";
 import { useGameStore } from "@/store/gameStore";
-import { getSocket } from "@/lib/socket";
-import { useSocket } from "@/hooks/useSocket";
+import { createRoom, joinRoom, startGame, getRoomState } from "@/lib/gameApi";
 import { Home as HomeIcon, LogIn, Lock, Rocket, Plus, Copy, X } from "lucide-react";
 
 const ParticleBackground = dynamic(
@@ -143,7 +142,7 @@ function CreateRoomView({
   const toggleCat = (cat: string) => {
     setSelectedCats((prev) =>
       prev.includes(cat)
-        ? prev.length > 1  // En az 1 kategori kalması zorunlu
+        ? prev.length > 1
           ? prev.filter((c) => c !== cat)
           : prev
         : [...prev, cat]
@@ -155,7 +154,6 @@ function CreateRoomView({
     const trimmed = newCatInput.trim();
     if (trimmed.length < 2) return;
     
-    // Check if it already exists in options or custom lists (case insensitive)
     const exists = [...CATEGORY_OPTIONS, ...customCats].some(
       (c) => c.toLowerCase() === trimmed.toLowerCase()
     );
@@ -167,12 +165,12 @@ function CreateRoomView({
     }
 
     setCustomCats((prev) => [...prev, trimmed]);
-    setSelectedCats((prev) => [...prev, trimmed]); // Select by default
+    setSelectedCats((prev) => [...prev, trimmed]);
     setNewCatInput("");
   };
 
   const handleRemoveCustomCat = (e: React.MouseEvent, catToRemove: string) => {
-    e.stopPropagation(); // Buton click'inin toggle yapmasını engelle
+    e.stopPropagation();
     setCustomCats((prev) => prev.filter((c) => c !== catToRemove));
     setSelectedCats((prev) => prev.filter((c) => c !== catToRemove));
   };
@@ -186,9 +184,6 @@ function CreateRoomView({
     }
     setIsLoading(true);
 
-    const socket = (await import("@/lib/socket")).getSocket();
-    if (!socket.connected) socket.connect();
-
     const localPlayer = useGameStore.getState().localPlayer;
     if (!localPlayer) {
       addToast({ type: "error", title: "Oturum bulunamadı. Lütfen tekrar giriş yapın." });
@@ -196,35 +191,36 @@ function CreateRoomView({
       return;
     }
 
-    socket.emit(
-      "create_room",
-      {
-        player: {
+    try {
+      const res = await createRoom(
+        {
           id: localPlayer.id,
           nick: localPlayer.nick,
           isReady: false,
           totalScore: 0,
           roundScores: [],
         },
-        settings: {
+        {
           roundDuration: duration,
           maxPlayers,
           categories: selectedCats,
           isPrivate,
           password: isPrivate ? password : "",
-        },
-      },
-      (res) => {
-        setIsLoading(false);
-        if (res.success && res.room) {
-          useGameStore.getState().setRoom(res.room);
-          addToast({ type: "success", title: "Oda oluşturuldu!", message: `Kod: ${res.room.code}` });
-          onCreated(res.room.code);
-        } else {
-          addToast({ type: "error", title: "Oda oluşturulamadı.", message: res.error });
         }
+      );
+
+      if (res.success && res.room) {
+        useGameStore.getState().setRoom(res.room);
+        addToast({ type: "success", title: "Oda oluşturuldu!", message: `Kod: ${res.room.code}` });
+        onCreated(res.room.code);
+      } else {
+        addToast({ type: "error", title: "Oda oluşturulamadı.", message: !res.success ? res.error : undefined });
       }
-    );
+    } catch {
+      addToast({ type: "error", title: "Bağlantı hatası. Lütfen tekrar deneyin." });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -248,15 +244,10 @@ function CreateRoomView({
         <h2 className="text-2xl font-bold font-display tracking-tight text-white/90">
           Oda Ayarları
         </h2>
-        <div className="w-10"></div> {/* Spacer for center alignment */}
+        <div className="w-10"></div>
       </div>
 
       <div className="flex-1 flex flex-col justify-center">
-        {/*
-          CLIPPING FIX:
-          GlassPanel'i sadece bir 'pencere' (korsan) olarak kullanıp içindeki div'e 'overflow-y-auto' vereceğiz.
-          Böylece yuvarlatılmış cam köşelerin dibine yapışmadan scroll olacak, padding içeride kalacak.
-        */}
         <GlassPanel className="p-0 flex flex-col" glow="primary" animate>
           <div className="flex-1 max-h-[72vh] overflow-y-auto overflow-x-hidden rounded-[1.25rem] px-10 py-10 sm:px-12 w-full custom-scrollbar">
             <div className="flex flex-col gap-10">
@@ -446,9 +437,6 @@ function JoinRoomView({
     }
     setIsLoading(true);
 
-    const socket = (await import("@/lib/socket")).getSocket();
-    if (!socket.connected) socket.connect();
-
     const localPlayer = useGameStore.getState().localPlayer;
     if (!localPlayer) {
       setError("Oturum bulunamadı. Lütfen yeniden giriş yapın.");
@@ -456,30 +444,31 @@ function JoinRoomView({
       return;
     }
 
-    socket.emit(
-      "join_room",
-      {
-        code: trimmed,
-        player: {
+    try {
+      const res = await joinRoom(
+        trimmed,
+        {
           id: localPlayer.id,
           nick: localPlayer.nick,
           isReady: false,
           totalScore: 0,
           roundScores: [],
         },
-        password,
-      },
-      (res) => {
-        setIsLoading(false);
-        if (res.success && res.room) {
-          useGameStore.getState().setRoom(res.room);
-          addToast({ type: "success", title: "Odaya katıldınız!" });
-          onJoined(trimmed);
-        } else {
-          setError(res.error ?? "Odaya katılınamadı.");
-        }
+        password
+      );
+
+      if (res.success && res.room) {
+        useGameStore.getState().setRoom(res.room);
+        addToast({ type: "success", title: "Odaya katıldınız!" });
+        onJoined(trimmed);
+      } else {
+        setError(!res.success ? (res.error ?? "Odaya katılınamadı.") : "Odaya katılınamadı.");
       }
-    );
+    } catch {
+      setError("Bağlantı hatası. Lütfen tekrar deneyin.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -562,7 +551,7 @@ function JoinRoomView({
 }
 
 // =============================================
-// LOBBY WAITING VIEW
+// LOBBY WAITING VIEW — Polling ile oda güncellemesi
 // =============================================
 function LobbyWaitingView({
   roomCode,
@@ -575,22 +564,49 @@ function LobbyWaitingView({
   isHost: boolean;
   onLeave: () => void;
 }) {
-  const { room, addToast, setRoundData, localPlayer } = useGameStore();
+  const { room, addToast, setRoundData } = useGameStore();
   const router = useRouter();
   const players = room?.players ?? [];
   const maxPlayers = room?.settings?.maxPlayers ?? 8;
+  const prevPhaseRef = useRef<string | null>(null);
 
+  // Polling: her 2 saniyede oda durumunu güncelle
   useEffect(() => {
-    const socket = getSocket();
-    const handleRoundStarted = (data: any) => {
-      setRoundData(data);
-      router.push("/game");
+    if (!roomCode) return;
+
+    const poll = async () => {
+      try {
+        const res = await getRoomState(roomCode);
+        if (res.success) {
+          useGameStore.getState().setIsConnected(true);
+          useGameStore.getState().setRoom(res.room);
+
+          // Oyun başladıysa game sayfasına git
+          if (
+            res.room.currentPhase === "playing" &&
+            prevPhaseRef.current !== "playing"
+          ) {
+            // roundData'yı store'a yaz
+            setRoundData({
+              letter: res.room.currentLetter,
+              round: res.room.currentRound,
+              totalRounds: res.room.totalRounds,
+              duration: res.room.settings.roundDuration,
+              categories: res.room.settings.categories,
+            });
+            router.push("/game");
+          }
+          prevPhaseRef.current = res.room.currentPhase;
+        }
+      } catch {
+        // sessizce devam et
+      }
     };
-    socket.on("round_started", handleRoundStarted);
-    return () => {
-      socket.off("round_started", handleRoundStarted);
-    };
-  }, [router, setRoundData]);
+
+    poll();
+    const timer = setInterval(poll, 2000);
+    return () => clearInterval(timer);
+  }, [roomCode, router, setRoundData]);
 
   const copyCode = () => {
     navigator.clipboard.writeText(roomCode).then(() => {
@@ -598,14 +614,15 @@ function LobbyWaitingView({
     });
   };
 
-  const handleStartGame = () => {
+  const handleStartGame = async () => {
+    const localPlayer = useGameStore.getState().localPlayer;
     if (!localPlayer?.id) return;
-    const socket = getSocket();
-    socket.emit("start_game", { code: roomCode, playerId: localPlayer.id }, (res: { success: boolean; error?: string }) => {
-      if (!res.success) {
-        addToast({ type: "error", title: "Hata", message: res.error || "Oyun başlatılamadı." });
-      }
-    });
+
+    const res = await startGame(roomCode, localPlayer.id);
+    if (!res.success) {
+      addToast({ type: "error", title: "Hata", message: res.error || "Oyun başlatılamadı." });
+    }
+    // Başarılıysa polling otomatik olarak phase change'i yakalar
   };
 
   return (
@@ -644,7 +661,6 @@ function LobbyWaitingView({
       {/* Room Code Banner */}
       <GlassPanel className="p-6 sm:p-8 text-center cursor-pointer group" glow="primary" animate onClick={copyCode}>
         <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.3em] mb-4">Oda Kodu</p>
-        {/* Önemli: bg-clip-text ve text-transparent BIRLIKte kullanılmalı. */}
         <div
           className="text-5xl sm:text-6xl font-black font-display tracking-[0.3em] leading-none"
           style={{
@@ -693,7 +709,7 @@ function LobbyWaitingView({
             </motion.div>
           ))}
 
-          {/* Boş slotlar — shimmer efekti ile bekleme animasyonu */}
+          {/* Boş slotlar */}
           {Array.from({ length: Math.max(0, Math.min(3, maxPlayers - players.length)) }).map((_, i) => (
             <div
               key={`empty-${i}`}
@@ -737,9 +753,6 @@ export default function LobbyPage() {
   const [view, setView] = useState<LobbyView>("select");
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [isHost, setIsHost] = useState(false);
-
-  // Socket.io bağlantısını lobby yüklendiğinde başlat
-  useSocket();
 
   if (!localPlayer) {
     if (typeof window !== "undefined") router.push("/");
@@ -803,9 +816,6 @@ export default function LobbyPage() {
               nick={localPlayer.nick}
               isHost={isHost}
               onLeave={() => {
-                const socket = getSocket();
-                socket.disconnect();
-                socket.connect(); // Fresh connection
                 setRoomCode(null);
                 setView("select");
                 useGameStore.getState().setRoom(null);

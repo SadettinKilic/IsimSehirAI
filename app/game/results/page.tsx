@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { GlassPanel, Button, Badge } from "@/components/ui";
 import { useGameStore } from "@/store/gameStore";
-import { getSocket } from "@/lib/socket";
+import { startGame, getRoomState } from "@/lib/gameApi";
 import type { EvaluationResult } from "@/lib/types";
 
 // ──────────────────────────────────────────────────────────────
@@ -20,7 +20,6 @@ function ScoreCard({
   rank: number;
   delay: number;
 }) {
-  const medalColors = ["text-yellow-300", "text-slate-300", "text-amber-600"];
   const medals = ["🥇", "🥈", "🥉"];
 
   return (
@@ -76,11 +75,12 @@ function ScoreCard({
 }
 
 // ──────────────────────────────────────────────────────────────
-// RESULTS PAGE
+// RESULTS PAGE — Polling ile sonraki tur takibi
 // ──────────────────────────────────────────────────────────────
 export default function ResultsPage() {
   const router = useRouter();
   const { evaluationResult, room, localPlayer, setRoundData } = useGameStore();
+  const prevPhaseRef = useRef<string | null>("results");
 
   // Evaluation yoksa lobby'e gönder
   useEffect(() => {
@@ -89,18 +89,41 @@ export default function ResultsPage() {
     }
   }, [evaluationResult, room, router]);
 
-  // Yeni tur başladığında herkesi oyuna gönder
+  // Polling: host sonraki turu başlatırsa tüm oyuncuları game sayfasına gönder
   useEffect(() => {
-    const socket = getSocket();
-    const handleRoundStarted = (data: any) => {
-      setRoundData(data);
-      router.push("/game");
+    if (!room?.code) return;
+    const code = room.code;
+
+    const poll = async () => {
+      try {
+        const res = await getRoomState(code);
+        if (!res.success) return;
+
+        const r = res.room;
+
+        if (
+          r.currentPhase === "playing" &&
+          prevPhaseRef.current !== "playing"
+        ) {
+          prevPhaseRef.current = "playing";
+          useGameStore.getState().setRoom(r);
+          setRoundData({
+            letter: r.currentLetter,
+            round: r.currentRound,
+            totalRounds: r.totalRounds,
+            duration: r.settings.roundDuration,
+            categories: r.settings.categories,
+          });
+          router.push("/game");
+        }
+      } catch {
+        // sessizce devam et
+      }
     };
-    socket.on("round_started", handleRoundStarted);
-    return () => {
-      socket.off("round_started", handleRoundStarted);
-    };
-  }, [router, setRoundData]);
+
+    const timer = setInterval(poll, 2000);
+    return () => clearInterval(timer);
+  }, [room?.code, router, setRoundData]);
 
   if (!evaluationResult || !room) return null;
 
@@ -109,12 +132,13 @@ export default function ResultsPage() {
   const isHost = localPlayer?.isHost;
   const isLastRound = room.currentRound >= room.totalRounds;
 
-  const handleNextRound = () => {
+  const handleNextRound = async () => {
     if (!room?.code || !localPlayer?.id) return;
-    const socket = getSocket();
-    socket.emit("start_game", { code: room.code, playerId: localPlayer.id }, (res: { success: boolean; error?: string }) => {
-      if (!res?.success) alert(res?.error || "Başlatılamadı.");
-    });
+    const res = await startGame(room.code, localPlayer.id);
+    if (!res.success) {
+      alert(res.error || "Başlatılamadı.");
+    }
+    // Başarılıysa polling otomatik olarak tüm oyuncuları /game'e yönlendirir
   };
 
   return (
@@ -162,7 +186,9 @@ export default function ResultsPage() {
       )}
 
       {!isHost && (
-        <p className="text-center text-white/40 text-sm">Host sonraki turu başlatmayı bekliyor...</p>
+        <p className="text-center text-white/40 text-sm">
+          Host sonraki turu başlatmayı bekliyor...
+        </p>
       )}
     </main>
   );

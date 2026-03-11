@@ -1,4 +1,4 @@
-import type { GamePhase } from "./constants";
+// lib/types.ts — Uygulama genelinde kullanılan tip tanımları
 
 // =============================================
 // PLAYER TYPES
@@ -31,11 +31,14 @@ export interface Room {
   hostId: string;
   players: Player[];
   settings: RoomSettings;
-  currentPhase: GamePhase;
+  currentPhase: "lobby" | "playing" | "evaluating" | "results" | "finished";
   currentLetter: string | null;
   currentRound: number;
   totalRounds: number;
   usedLetters: string[];
+  // Redis'te saklanan geçici alanlar
+  answers?: Record<string, Record<string, string>>; // playerId → CategoryAnswers
+  evaluation?: EvaluationResult | null;
 }
 
 // =============================================

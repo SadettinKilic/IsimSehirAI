@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { GlassPanel, Button, Badge } from "@/components/ui";
 import { useGameStore } from "@/store/gameStore";
-import { getSocket } from "@/lib/socket";
+import { submitAnswers, updateScores, getRoomState } from "@/lib/gameApi";
 import { evaluateRound } from "@/app/actions/evaluate";
 import type { CategoryAnswers, EvaluationResult, GeminiInput } from "@/lib/types";
 
@@ -197,8 +197,7 @@ export default function GamePage() {
   const [answers, setAnswers] = useState<CategoryAnswers>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [isEvaluating, setIsEvaluating] = useState(false);
-  const [waitingCount, setWaitingCount] = useState(0);
-  const [totalPlayers, setTotalPlayers] = useState(1);
+  const evaluatingRef = useRef(false); // Host AI değerlendirmesi çalışıyor mu?
 
   // Eğer oda yoksa lobby'e gönder
   useEffect(() => {
@@ -211,118 +210,107 @@ export default function GamePage() {
     if (room) {
       setCategories(room.settings.categories);
       setTotalRounds(room.totalRounds);
-      setTotalPlayers(room.players.length);
     }
   }, [room]);
 
+  // roundData store'dan (lobby → game geçişi)
   useEffect(() => {
     if (roundData) {
-      setCurrentLetter(roundData.letter);
-      setCurrentRound(roundData.round);
-      setTotalRounds(roundData.totalRounds);
+      setCurrentLetter(roundData.letter ?? "");
+      setCurrentRound(roundData.round ?? 1);
+      setTotalRounds(roundData.totalRounds ?? 5);
       setDuration(roundData.duration ?? 60);
-      setCategories(roundData.categories ?? categories);
+      setCategories(roundData.categories ?? []);
       setAnswers({});
       setIsSubmitted(false);
       setGameState("playing");
-      setWaitingCount(0);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roundData]);
 
-  // Socket event'larını dinle
+  // Polling: oda fazını izle
   useEffect(() => {
-    const socket = getSocket();
+    if (!room?.code) return;
+    const code = room.code;
 
-    socket.on("round_started", (data) => {
-      setCurrentLetter(data.letter);
-      setCurrentRound(data.round);
-      setTotalRounds(data.totalRounds);
-      setDuration(data.duration ?? 60);
-      setCategories(data.categories ?? categories);
-      setAnswers({});
-      setIsSubmitted(false);
-      setGameState("playing");
-      setWaitingCount(0);
-    });
+    const poll = async () => {
+      try {
+        const res = await getRoomState(code);
+        if (!res.success) return;
 
-    socket.on("round_complete", async (data) => {
-      setGameState("evaluating");
-      setIsEvaluating(true);
+        const r = res.room;
+        useGameStore.getState().setRoom(r);
 
-      // Sadece host AI değerlendirmesini çalıştır
-      if (localPlayer?.isHost) {
-        const input: GeminiInput = {
-          tur_harfi: data.letter,
-          kategoriler: data.categories ?? categories,
-          kullanicilar: data.kullanicilar,
-        };
+        // "evaluating" fazına geçildi → host AI değerlendirmesi yapacak
+        if (r.currentPhase === "evaluating" && gameState === "playing" && !evaluatingRef.current) {
+          evaluatingRef.current = true;
+          setGameState("evaluating");
+          setIsEvaluating(true);
 
-        const res = await evaluateRound(input);
-        if (res.success) {
-          const playerScores = res.result.degerlendirme.map((p) => ({
-            nick: p.nick,
-            score: p.toplam,
-          }));
+          if (localPlayer?.isHost && r.answers) {
+            const kullanicilar = r.players.map((p) => ({
+              nick: p.nick,
+              cevaplar: r.answers?.[p.id] ?? {},
+            }));
 
-          socket.emit("scores_updated", {
-            code: room!.code,
-            evaluation: res.result,
-            playerScores,
-          });
+            const input: GeminiInput = {
+              tur_harfi: r.currentLetter ?? "",
+              kategoriler: r.settings.categories,
+              kullanicilar,
+            };
+
+            const evalRes = await evaluateRound(input);
+            if (evalRes.success) {
+              const playerScores = evalRes.result.degerlendirme.map((p) => ({
+                nick: p.nick,
+                score: p.toplam,
+              }));
+              await updateScores(code, evalRes.result, playerScores);
+            }
+          }
         }
+
+        // "results" fazı → ara sonuçlar sayfası
+        if (r.currentPhase === "results" && r.evaluation) {
+          useGameStore.getState().setEvaluationResult(r.evaluation);
+          useGameStore.getState().setRoom({ ...r, currentPhase: "lobby" as "lobby" });
+          router.push("/game/results");
+        }
+
+        // "finished" fazı → podium
+        if (r.currentPhase === "finished" && r.evaluation) {
+          useGameStore.getState().setEvaluationResult(r.evaluation);
+          router.push("/game/podium");
+        }
+      } catch {
+        // sessizce devam et
       }
-    });
-
-    socket.on("round_results", (data) => {
-      setIsEvaluating(false);
-      // Results sayfasına git
-        useGameStore.getState().setEvaluationResult(data.evaluation);
-        useGameStore.getState().setRoom({ ...room!, players: data.players, currentPhase: "LOBBY" });
-        router.push("/game/results");
-    });
-
-    socket.on("game_over", (data) => {
-      setIsEvaluating(false);
-        useGameStore.getState().setEvaluationResult(data.evaluation);
-        useGameStore.getState().setRoom({ ...room!, players: data.players, currentPhase: "PODIUM" });
-        router.push("/game/podium");
-    });
-
-    return () => {
-      socket.off("round_started");
-      socket.off("round_complete");
-      socket.off("round_results");
-      socket.off("game_over");
     };
-  }, [room, localPlayer, categories, router]);
+
+    const timer = setInterval(poll, 2000);
+    return () => clearInterval(timer);
+  }, [room?.code, gameState, localPlayer, router]);
 
   const handleAnswerChange = useCallback((cat: string, val: string) => {
     setAnswers((prev) => ({ ...prev, [cat]: val }));
   }, []);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     if (isSubmitted || !room || !localPlayer?.id) return;
     setIsSubmitted(true);
-    const socket = getSocket();
-    socket.emit("submit_answers", { code: room.code, playerId: localPlayer.id, answers }, () => {});
+
+    try {
+      await submitAnswers(room.code, localPlayer.id, answers);
+    } catch {
+      // Yine de isSubmitted=true bırak, tekrar gönderimi engelle
+    }
   }, [isSubmitted, room, answers, localPlayer]);
 
   const handleTimeUp = useCallback(() => {
     if (!isSubmitted) handleSubmit();
   }, [isSubmitted, handleSubmit]);
 
-  const handleStartGame = () => {
-    if (!room?.code || !localPlayer?.id) return;
-    const socket = getSocket();
-    socket.emit("start_game", { code: room.code, playerId: localPlayer.id }, (res: { success: boolean; error?: string }) => {
-      if (!res.success) {
-        alert(res.error);
-      }
-    });
-  };
-
-  // ── WAITING STATE (lobby'den burada bekleniyor) ──
+  // ── WAITING STATE ──
   if (gameState === "waiting") {
     return (
       <main className="relative min-h-[100dvh] w-full flex items-center justify-center px-4 py-8">
@@ -346,13 +334,7 @@ export default function GamePage() {
                   <Badge key={c} variant="primary" className="text-xs">{c}</Badge>
                 ))}
               </div>
-              {localPlayer?.isHost ? (
-                <Button variant="primary" onClick={handleStartGame} className="mt-4 w-full py-4">
-                  Oyunu Başlat
-                </Button>
-              ) : (
-                <p className="text-white/40 text-sm mt-4">Host oyunu bekliyor...</p>
-              )}
+              <p className="text-white/40 text-sm mt-4">Host oyunu başlatıyor, bekleniyor...</p>
             </div>
           </GlassPanel>
         </motion.div>
