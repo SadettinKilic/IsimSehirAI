@@ -1,0 +1,53 @@
+
+> isimsehirai@0.1.0 dev
+> node server.js
+
+✅ Sunucu hazır: http://localhost:3000
+   Mod: Geliştirme
+[Socket.IO] Bağlantı kuruldu: 1H7xRCu7UlTAS9vNAAAB
+(node:48472) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+ GET /lobby 200 in 1411ms (compile: 1344ms, render: 68ms)
+[Socket.IO] Bağlantı kesildi: 1H7xRCu7UlTAS9vNAAAB
+[Socket.IO] Bağlantı kuruldu: YazhjMCp0O1Zcoe4AAAD
+ GET / 200 in 92ms (compile: 72ms, render: 21ms)
+ GET / 200 in 22ms (compile: 1373µs, render: 21ms)
+ GET / 200 in 21ms (compile: 941µs, render: 20ms)
+ GET / 200 in 14ms (compile: 1512µs, render: 12ms)
+ GET /lobby 200 in 20ms (compile: 7ms, render: 13ms)
+[Room] Oluşturuldu: LUGRIA | Host: vc
+[Socket.IO] Bağlantı kesildi: YazhjMCp0O1Zcoe4AAAD
+ GET / 200 in 246ms (compile: 86ms, render: 161ms)
+ GET /lobby 200 in 17ms (compile: 6ms, render: 11ms)
+[Socket.IO] Bağlantı kuruldu: jnWwFDH55-rlLGAnAAAF
+[Room] Oluşturuldu: 8J10JU | Host: TestHost
+ GET / 200 in 26ms (compile: 4ms, render: 21ms)
+ GET /lobby 200 in 15ms (compile: 5ms, render: 11ms)
+[Socket.IO] Bağlantı kuruldu: dTFFU5P4-W2ca32FAAAH
+[Room] Katılım: 8J10JU | Oyuncu: TestGuest
+[Game] Tur 1 başladı: 8J10JU | Harf: M
+ GET /game 200 in 279ms (compile: 245ms, render: 34ms)
+ GET /game 200 in 20ms (compile: 4ms, render: 15ms)
+[Game] Cevaplar alındı: jnWwFDH55-rlLGAnAAAF -> 8J10JU
+[Game] Cevaplar alındı: dTFFU5P4-W2ca32FAAAH -> 8J10JU
+[Game] Tur tamamlandı: 8J10JU | Tur: 1
+[Socket.IO] Bağlantı kesildi: jnWwFDH55-rlLGAnAAAF
+ GET / 200 in 67ms (compile: 31ms, render: 36ms)
+ GET /lobby 200 in 46ms (compile: 20ms, render: 26ms)
+[Socket.IO] Bağlantı kuruldu: onEN1myPDG4XHlmbAAAJ
+[Room] Oluşturuldu: 0ZKUHA | Host: Host
+[Game] Tur 1 başladı: 0ZKUHA | Harf: C
+ GET /game 200 in 42ms (compile: 22ms, render: 20ms)
+[Game] Cevaplar alındı: onEN1myPDG4XHlmbAAAJ -> 0ZKUHA
+[Game] Tur tamamlandı: 0ZKUHA | Tur: 1
+ GET / 200 in 24ms (compile: 3ms, render: 20ms)
+[Socket.IO] Bağlantı kesildi: onEN1myPDG4XHlmbAAAJ
+ GET /lobby 200 in 16ms (compile: 6ms, render: 10ms)
+[Socket.IO] Bağlantı kuruldu: VbcOarD_-5f2G1eIAAAL
+[Room] Oluşturuldu: 8INSW9 | Host: TestHost
+[Game] Tur 1 başladı: 8INSW9 | Harf: O
+ GET /game 200 in 19ms (compile: 8ms, render: 11ms)
+[Game] Cevaplar alındı: VbcOarD_-5f2G1eIAAAL -> 8INSW9
+[Game] Tur tamamlandı: 8INSW9 | Tur: 1
+[Socket.IO] Bağlantı kesildi: dTFFU5P4-W2ca32FAAAH
+[Socket.IO] Bağlantı kesildi: VbcOarD_-5f2G1eIAAAL

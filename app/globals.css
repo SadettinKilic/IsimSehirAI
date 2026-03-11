@@ -1,26 +1,233 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* =============================================
+   THEME TOKENS — Premium Glassmorphism Dark
+   ============================================= */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  /* Font */
+  --font-sans: var(--font-inter);
+  --font-display: var(--font-outfit);
+
+  /* Colors */
+  --color-primary: #7c3aed;
+  --color-primary-light: #a78bfa;
+  --color-primary-dark: #5b21b6;
+  --color-accent: #06b6d4;
+  --color-accent-light: #67e8f9;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+
+  /* Glass surface */
+  --color-glass-bg: rgba(255, 255, 255, 0.03);
+  --color-glass-border-light: rgba(255, 255, 255, 0.15);
+  --color-glass-border-dark: rgba(255, 255, 255, 0.06);
+  --color-glass-highlight: rgba(255, 255, 255, 0.08);
+
+  /* BG gradient stops */
+  --color-bg-from: #080212;
+  --color-bg-via: #120428;
+  --color-bg-to: #04090f;
+
+  /* Glow */
+  --color-glow-primary: rgba(124, 58, 237, 0.5);
+  --color-glow-accent: rgba(6, 182, 212, 0.5);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* =============================================
+   GLOBAL RESET & BASE
+   ============================================= */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  background: 
+    radial-gradient(ellipse at 20% 10%, rgba(124,58,237,0.18) 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 90%, rgba(6,182,212,0.12) 0%, transparent 55%),
+    linear-gradient(170deg, var(--color-bg-from) 0%, var(--color-bg-via) 50%, var(--color-bg-to) 100%);
+  background-attachment: fixed;
+  color: rgba(255, 255, 255, 0.9);
+  font-family: var(--font-inter, "Inter", system-ui, sans-serif);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overscroll-behavior-y: none;
+}
+
+/* =============================================
+   GLASS UTILITIES - Premium
+   ============================================= */
+.glass {
+  background: var(--color-glass-bg);
+  backdrop-filter: blur(28px) saturate(180%);
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  border: 1px solid var(--color-glass-border-dark);
+  border-top: 1px solid var(--color-glass-border-light);
+  border-left: 1px solid rgba(255,255,255,0.10);
+  border-radius: 1.25rem; /* 20px - daha az agresif köşe = içerik cliplamaz */
+  box-shadow: 
+    0 20px 50px -15px rgba(0, 0, 0, 0.5), 
+    0 0 0 0.5px rgba(255,255,255,0.05),
+    inset 0 1px 2px rgba(255, 255, 255, 0.12),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.glass-sm {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  border: 1px solid var(--color-glass-border-dark);
+  border-top: 1px solid rgba(255,255,255,0.10);
+  border-radius: 1rem;
+  box-shadow: 
+    0 8px 24px -8px rgba(0, 0, 0, 0.3),
+    inset 0 1px 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Glass shimmer — subtle top-left sweep, NO overflow-hidden */
+.glass-highlight {
+  position: relative;
+  isolation: isolate;
+}
+.glass-highlight::after {
+  content: "";
+  position: absolute;
+  /* inset ile köşelerin içinde kalıyoruz, overflow:hidden gerekmez */
+  inset: 0;
+  background: radial-gradient(
+    ellipse 70% 50% at 15% 15%,
+    rgba(255,255,255,0.07) 0%,
+    transparent 70%
+  );
+  pointer-events: none;
+  border-radius: inherit;
+  z-index: 0;
+}
+
+/* =============================================
+   GLOW EFFECTS
+   ============================================= */
+.glow-primary {
+  box-shadow: 
+    0 0 35px rgba(124, 58, 237, 0.45),
+    0 0 70px rgba(124, 58, 237, 0.18);
+}
+
+.glow-accent {
+  box-shadow: 
+    0 0 35px rgba(6, 182, 212, 0.45),
+    0 0 70px rgba(6, 182, 212, 0.18);
+}
+
+.text-glow {
+  text-shadow: 
+    0 0 20px rgba(124, 58, 237, 0.7),
+    0 0 40px rgba(124, 58, 237, 0.4),
+    0 0 80px rgba(124, 58, 237, 0.2);
+}
+
+/* =============================================
+   GRADIENT TEXT
+   ============================================= */
+.gradient-text {
+  background: linear-gradient(135deg, #c4b5fd 0%, #93c5fd 50%, #a5f3fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Utility class for inline gradient text snippets (room code, etc.) */
+.gradient-text-warm {
+  background: linear-gradient(90deg, #e879f9 0%, #a78bfa 50%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* =============================================
+   SCROLLBAR STYLING
+   ============================================= */
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(124, 58, 237, 0.35);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.6);
+}
+
+/* custom-scrollbar helper: use inside overflow-y-auto containers */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 3px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(167, 139, 250, 0.3);
+  border-radius: 9999px;
+}
+
+/* =============================================
+   MOBILE TOUCH OPTIMIZATION
+   ============================================= */
+@media (hover: none) and (pointer: coarse) {
+  .glass {
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+  }
+}
+
+/* =============================================
+   ANIMATIONS
+   ============================================= */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-12px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+
+@keyframes shimmer {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(200%); }
+}
+
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+/* Slot / skeleton shimmer */
+.shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.06) 50%, transparent 100%);
+  animation: shimmer 2s infinite;
 }
