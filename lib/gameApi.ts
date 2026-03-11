@@ -109,3 +109,18 @@ export async function getRoomState(
   });
   return res.json();
 }
+
+// ─────────────────────────────────────────────────────────────
+// ODA AYARLARINI GÜNCELLE
+// ─────────────────────────────────────────────────────────────
+export async function updateRoomSettings(
+  code: string,
+  settings: Partial<Room["settings"]>
+): Promise<{ success: true; room: Room } | { success: false; error: string }> {
+  const res = await fetch(`${base}/${code}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ settings }),
+  });
+  return res.json();
+}

@@ -13,38 +13,27 @@ import type { EvaluationResult } from "@/lib/types";
 // ──────────────────────────────────────────────────────────────
 function ScoreCard({
   playerEval,
-  rank,
   delay,
 }: {
   playerEval: NonNullable<EvaluationResult["degerlendirme"]>[number];
-  rank: number;
   delay: number;
 }) {
-  const medals = ["🥇", "🥈", "🥉"];
-
   return (
     <motion.div
       initial={{ opacity: 0, x: -30 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay, ease: [0.23, 1, 0.32, 1] }}
     >
-      <GlassPanel className="p-5 sm:p-6" glow={rank === 0 ? "primary" : "none"}>
+      <GlassPanel className="p-5 sm:p-6" glow="none">
         {/* Player header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{medals[rank] ?? rank + 1 + "."}</span>
             <div>
-              <p className={`font-bold text-lg ${rank === 0 ? "text-violet-300" : "text-white"}`}>
+              <p className="font-bold text-lg text-white">
                 {playerEval.nick}
               </p>
             </div>
           </div>
-          <Badge
-            variant={rank === 0 ? "primary" : "neutral"}
-            className="text-lg font-black px-4 py-1.5"
-          >
-            {playerEval.toplam} puan
-          </Badge>
         </div>
 
         {/* Category breakdown */}
@@ -57,15 +46,8 @@ function ScoreCard({
             >
               <div className="flex flex-col flex-1 min-w-0">
                 <span className="text-xs font-semibold uppercase tracking-wider text-white/40">{cat}</span>
-                <span className="text-white/80 text-sm font-medium mt-0.5 truncate">{score.gerekce}</span>
+                <span className="text-white/80 text-sm font-medium mt-0.5">{score.gerekce || "-"}</span>
               </div>
-              <span
-                className={`text-sm font-bold shrink-0 mt-0.5 ${
-                  score.puan > 0 ? "text-green-400" : "text-red-400/70"
-                }`}
-              >
-                {score.puan > 0 ? `+${score.puan}` : "0"}
-              </span>
             </div>
           ))}
         </div>
@@ -164,7 +146,7 @@ export default function ResultsPage() {
       {/* Score cards */}
       <div className="flex flex-col gap-4">
         {sorted.map((playerEval, i) => (
-          <ScoreCard key={playerEval.nick} playerEval={playerEval} rank={i} delay={i * 0.1} />
+          <ScoreCard key={playerEval.nick} playerEval={playerEval} delay={i * 0.1} />
         ))}
       </div>
 

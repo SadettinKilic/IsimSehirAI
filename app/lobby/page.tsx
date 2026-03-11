@@ -7,8 +7,8 @@ import { useRouter } from "next/navigation";
 import { GlassPanel, Button, TextInput, Badge } from "@/components/ui";
 import { ToastContainer } from "@/components/ui/Toast";
 import { useGameStore } from "@/store/gameStore";
-import { createRoom, joinRoom, startGame, getRoomState } from "@/lib/gameApi";
-import { Home as HomeIcon, LogIn, Lock, Rocket, Plus, Copy, X } from "lucide-react";
+import { createRoom, joinRoom, startGame, getRoomState, updateRoomSettings } from "@/lib/gameApi";
+import { Home as HomeIcon, LogIn, Lock, Rocket, Plus, Copy, X, Settings } from "lucide-react";
 
 const ParticleBackground = dynamic(
   () =>
@@ -128,6 +128,7 @@ function CreateRoomView({
   onCreated: (code: string) => void;
 }) {
   const [duration, setDuration] = useState(60);
+  const [totalRounds, setTotalRounds] = useState(5);
   const [maxPlayers, setMaxPlayers] = useState(8);
   const [isPrivate, setIsPrivate] = useState(false);
   const [password, setPassword] = useState("");
@@ -202,6 +203,7 @@ function CreateRoomView({
         },
         {
           roundDuration: duration,
+          totalRounds: totalRounds,
           maxPlayers,
           categories: selectedCats,
           isPrivate,
@@ -277,6 +279,25 @@ function CreateRoomView({
                   <span>75</span>
                   <span>120</span>
                 </div>
+              </div>
+
+              {/* Total Rounds */}
+              <div className="flex flex-col gap-3 border-t border-white/5 pt-8">
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-semibold tracking-wide text-white/60 uppercase">
+                    Tur Sayısı
+                  </label>
+                  <Badge variant="primary" className="px-3 py-1 font-bold">{totalRounds} Tur</Badge>
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={totalRounds}
+                  onChange={(e) => setTotalRounds(Number(e.target.value))}
+                  className="w-full accent-violet-500 h-2 bg-white/10 rounded-full appearance-none outline-none focus:ring-2 focus:ring-violet-400"
+                />
               </div>
 
               {/* Max Players */}
@@ -573,6 +594,20 @@ function LobbyWaitingView({
   const maxPlayers = room?.settings?.maxPlayers ?? 8;
   const prevPhaseRef = useRef<string | null>(null);
 
+  // Settings Panel State
+  const [showSettings, setShowSettings] = useState(false);
+  const [editDuration, setEditDuration] = useState(60);
+  const [editTotalRounds, setEditTotalRounds] = useState(5);
+  const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
+
+  // Modal açıldığında mevcut ayarları yükle
+  useEffect(() => {
+    if (showSettings && room?.settings) {
+      setEditDuration(room.settings.roundDuration);
+      setEditTotalRounds(room.totalRounds);
+    }
+  }, [showSettings, room]);
+
   // Polling: her 2 saniyede oda durumunu güncelle
   useEffect(() => {
     if (!roomCode) return;
@@ -625,7 +660,22 @@ function LobbyWaitingView({
     if (!res.success) {
       addToast({ type: "error", title: "Hata", message: res.error || "Oyun başlatılamadı." });
     }
-    // Başarılıysa polling otomatik olarak phase change'i yakalar
+  };
+
+  const handleUpdateSettings = async () => {
+    setIsUpdatingSettings(true);
+    const res = await updateRoomSettings(roomCode, {
+      roundDuration: editDuration,
+      totalRounds: editTotalRounds,
+    });
+    setIsUpdatingSettings(false);
+    
+    if (res.success) {
+      addToast({ type: "success", title: "Başarılı", message: "Oda ayarları güncellendi." });
+      setShowSettings(false);
+    } else {
+      addToast({ type: "error", title: "Hata", message: res.error || "Ayarlar güncellenirken hata oluştu." });
+    }
   };
 
   return (
@@ -662,7 +712,19 @@ function LobbyWaitingView({
       </div>
 
       {/* Room Code Banner */}
-      <GlassPanel className="p-6 sm:p-8 text-center cursor-pointer group" glow="primary" animate onClick={copyCode}>
+      <GlassPanel className="p-6 sm:p-8 text-center cursor-pointer group relative" glow="primary" animate onClick={copyCode}>
+        {isHost && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setShowSettings(true);
+            }}
+            className="absolute top-4 right-4 p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors border border-white/5"
+            title="Oda Ayarları"
+          >
+            <Settings size={18} />
+          </button>
+        )}
         <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.3em] mb-4">Oda Kodu</p>
         <div
           className="text-5xl sm:text-6xl font-black font-display tracking-[0.3em] leading-none"

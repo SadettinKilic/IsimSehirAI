@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
       players: [host],
       settings: {
         roundDuration: settings?.roundDuration ?? 60,
+        totalRounds: settings?.totalRounds ?? 5,
         maxPlayers: settings?.maxPlayers ?? 8,
         letterPool: [],
         categories: settings?.categories ?? ["İsim", "Şehir", "Hayvan", "Meslek"],
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
       currentPhase: "lobby",
       currentLetter: null,
       currentRound: 0,
-      totalRounds: 5,
+      totalRounds: settings?.totalRounds ?? 5,
       usedLetters: [],
       answers: {},
       evaluation: null,

@@ -18,6 +18,7 @@ export interface Player {
 // =============================================
 export interface RoomSettings {
   roundDuration: number;
+  totalRounds: number;
   maxPlayers: number;
   letterPool: string[];
   categories: string[];
