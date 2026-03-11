@@ -292,7 +292,7 @@ function CreateRoomView({
                 <input
                   type="range"
                   min={1}
-                  max={10}
+                  max={23}
                   step={1}
                   value={totalRounds}
                   onChange={(e) => setTotalRounds(Number(e.target.value))}
@@ -805,6 +805,80 @@ function LobbyWaitingView({
           </span>
         </div>
       )}
+
+      {/* Settings Modal */}
+      <AnimatePresence>
+        {isHost && showSettings && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-sm glass border border-white/10 rounded-3xl p-6 relative"
+            >
+              <h3 className="text-xl font-bold text-white mb-6 pr-8">
+                Oda Ayarları
+              </h3>
+              
+              <button
+                onClick={() => setShowSettings(false)}
+                className="absolute top-6 right-6 text-white/50 hover:text-white transition-colors"
+              >
+                <X size={20} />
+              </button>
+
+              <div className="flex flex-col gap-6">
+                <div className="flex flex-col gap-3 border-t border-white/5 pt-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold tracking-wide text-white/60 uppercase">
+                      Cevap Süresi
+                    </label>
+                    <Badge variant="primary" className="px-3 py-1 font-bold">{editDuration} sn</Badge>
+                  </div>
+                  <input
+                    type="range"
+                    min={30}
+                    max={120}
+                    step={15}
+                    value={editDuration}
+                    onChange={(e) => setEditDuration(Number(e.target.value))}
+                    className="w-full accent-violet-500 h-2 bg-white/10 rounded-full appearance-none outline-none focus:ring-2 focus:ring-violet-400"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-3 border-t border-white/5 pt-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-semibold tracking-wide text-white/60 uppercase">
+                      Tur Sayısı
+                    </label>
+                    <Badge variant="primary" className="px-3 py-1 font-bold">{editTotalRounds} Tur</Badge>
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={23}
+                    step={1}
+                    value={editTotalRounds}
+                    onChange={(e) => setEditTotalRounds(Number(e.target.value))}
+                    className="w-full accent-violet-500 h-2 bg-white/10 rounded-full appearance-none outline-none focus:ring-2 focus:ring-violet-400"
+                  />
+                  <p className="text-white/40 text-[10px] mt-1 text-center font-medium">Tur sayısı en fazla alfabedeki harf havuzu (22) kadar seçilebilir.</p>
+                </div>
+
+                <Button
+                  onClick={handleUpdateSettings}
+                  isLoading={isUpdatingSettings}
+                  variant="primary"
+                  fullWidth
+                  className="mt-2"
+                >
+                  Ayarları Kaydet
+                </Button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

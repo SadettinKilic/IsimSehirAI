@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { GlassPanel, Button, Badge } from "@/components/ui";
 import { useGameStore } from "@/store/gameStore";
-import { startGame, getRoomState } from "@/lib/gameApi";
+import { startGame, getRoomState, finishGame } from "@/lib/gameApi";
 import type { EvaluationResult } from "@/lib/types";
 
 // ──────────────────────────────────────────────────────────────
@@ -13,9 +13,11 @@ import type { EvaluationResult } from "@/lib/types";
 // ──────────────────────────────────────────────────────────────
 function ScoreCard({
   playerEval,
+  playerAnswers,
   delay,
 }: {
   playerEval: NonNullable<EvaluationResult["degerlendirme"]>[number];
+  playerAnswers?: Record<string, string>;
   delay: number;
 }) {
   return (
@@ -38,18 +40,25 @@ function ScoreCard({
 
         {/* Category breakdown */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {Object.entries(playerEval.puanlar).map(([cat, score]) => (
-            <div
-              key={cat}
-              className="flex items-start justify-between gap-2 rounded-xl p-3"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
-            >
-              <div className="flex flex-col flex-1 min-w-0">
-                <span className="text-xs font-semibold uppercase tracking-wider text-white/40">{cat}</span>
-                <span className="text-white/80 text-sm font-medium mt-0.5">{score.gerekce || "-"}</span>
+          {Object.entries(playerEval.puanlar).map(([cat, score]) => {
+            const answer = playerAnswers?.[cat];
+            const colorClass = score.puan === 10 ? "text-green-400" : score.puan === 5 ? "text-orange-400" : "text-red-400";
+            return (
+              <div
+                key={cat}
+                className="flex items-start justify-between gap-2 rounded-xl p-3"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
+              >
+                <div className="flex flex-col flex-1 min-w-0">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-white/40">{cat}</span>
+                  <span className="text-white/80 text-sm font-medium mt-0.5">
+                    {answer ? <span className={`font-bold mr-1 ${colorClass}`}>{answer} -</span> : null}
+                    {score.gerekce || "-"}
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </GlassPanel>
     </motion.div>
@@ -97,6 +106,13 @@ export default function ResultsPage() {
             categories: r.settings.categories,
           });
           router.push("/game");
+        } else if (
+          r.currentPhase === "finished" &&
+          prevPhaseRef.current !== "finished"
+        ) {
+          prevPhaseRef.current = "finished";
+          useGameStore.getState().setRoom(r);
+          router.push("/game/podium");
         }
       } catch {
         // sessizce devam et
@@ -120,7 +136,14 @@ export default function ResultsPage() {
     if (!res.success) {
       alert(res.error || "Başlatılamadı.");
     }
-    // Başarılıysa polling otomatik olarak tüm oyuncuları /game'e yönlendirir
+  };
+
+  const handleFinishGame = async () => {
+    if (!room?.code || !localPlayer?.id) return;
+    const res = await finishGame(room.code, localPlayer.id);
+    if (!res.success) {
+      alert(res.error || "Podyuma geçilemedi.");
+    }
   };
 
   return (
@@ -145,9 +168,19 @@ export default function ResultsPage() {
 
       {/* Score cards */}
       <div className="flex flex-col gap-4">
-        {sorted.map((playerEval, i) => (
-          <ScoreCard key={playerEval.nick} playerEval={playerEval} delay={i * 0.1} />
-        ))}
+        {sorted.map((playerEval, i) => {
+          const playerId = room.players.find(p => p.nick === playerEval.nick)?.id;
+          const playerAnswers = playerId ? room.answers?.[playerId] : undefined;
+          
+          return (
+            <ScoreCard 
+              key={playerEval.nick} 
+              playerEval={playerEval} 
+              playerAnswers={playerAnswers}
+              delay={i * 0.1} 
+            />
+          );
+        })}
       </div>
 
       {/* Action button (host only) */}
@@ -159,7 +192,7 @@ export default function ResultsPage() {
         >
           <Button
             variant="primary"
-            onClick={isLastRound ? () => router.push("/game/podium") : handleNextRound}
+            onClick={isLastRound ? handleFinishGame : handleNextRound}
             className="w-full py-4 text-base"
           >
             {isLastRound ? "Sonuçları Gör 🏆" : "Sonraki Tur →"}

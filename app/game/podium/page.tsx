@@ -175,7 +175,8 @@ function PodiumVisual({
       : [top3[0]].filter(Boolean);
 
   const displayRanks = top3.length >= 2 ? [1, 0, 2] : [0];
-  const heights = ["h-28 sm:h-36", "h-40 sm:h-48", "h-20 sm:h-28"];
+  // 1. (rank 0) en yüksek, 2. (rank 1) orta, 3. (rank 2) en kısa
+  const heights = ["h-40 sm:h-48", "h-28 sm:h-36", "h-20 sm:h-28"];
 
   return (
     <div className="flex items-end justify-center gap-2 sm:gap-4 w-full max-w-xs mx-auto">

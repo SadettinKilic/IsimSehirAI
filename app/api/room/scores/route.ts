@@ -29,8 +29,9 @@ export async function POST(req: NextRequest) {
     room.evaluation = evaluation;
 
     const isGameOver = room.currentRound >= room.totalRounds;
-    // Oyun bittiyse "finished", devam ediyorsa "results" (değerlendirmeyi görmek için)
-    room.currentPhase = isGameOver ? "finished" : "results";
+    // Oyun bitse bile değerlendirmeleri görmek için her zaman 'results' ekranına düşüyoruz.
+    // Host results sayfasından "Sonuçları Gör"e basınca 'finished' yapılıp podyuma gidilecek.
+    room.currentPhase = "results";
 
     await redis.set(roomKey(upperCode), JSON.stringify(room), { ex: ROOM_TTL });
 

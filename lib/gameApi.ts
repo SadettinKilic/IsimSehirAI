@@ -124,3 +124,18 @@ export async function updateRoomSettings(
   });
   return res.json();
 }
+
+// ─────────────────────────────────────────────────────────────
+// OYUNU BİTİR (PODYUM)
+// ─────────────────────────────────────────────────────────────
+export async function finishGame(
+  code: string,
+  playerId: string
+): Promise<{ success: true; phase: string } | { success: false; error: string }> {
+  const res = await fetch(`${base}/finish`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code, playerId }),
+  });
+  return res.json();
+}

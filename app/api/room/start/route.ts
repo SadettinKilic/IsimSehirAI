@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { redis, roomKey, ROOM_TTL } from "@/lib/redis";
 import type { Room } from "@/lib/types";
 
-const LETTERS = "ABCDEFGHİJKLMNOPRSTUYZ".split("");
+const LETTERS = "ABCDEFGHİJKLMNOPRSTUVYZ".split("");
 
 export async function POST(req: NextRequest) {
   try {
