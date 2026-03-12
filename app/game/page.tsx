@@ -7,7 +7,7 @@ import { GlassPanel, Button, Badge } from "@/components/ui";
 import { useGameStore } from "@/store/gameStore";
 import { submitAnswers, updateScores, getRoomState, startGame } from "@/lib/gameApi";
 import { evaluateRound } from "@/app/actions/evaluate";
-import type { CategoryAnswers, GeminiInput } from "@/lib/types";
+import type { CategoryAnswers, GeminiInput, PlayerAnswers } from "@/lib/types";
 
 type GameState = "waiting" | "playing" | "evaluating" | "round_over";
 
@@ -117,7 +117,15 @@ function AnswerForm({ categories, letter, answers, onChange, onSubmit, isSubmitt
 // ─────────────────────────────────────────────────────────────────────────────
 // EVALUATING VIEW
 // ─────────────────────────────────────────────────────────────────────────────
-function EvaluatingView() {
+function EvaluatingView({
+  error,
+  isHost,
+  onRetry,
+}: {
+  error: string | null;
+  isHost: boolean;
+  onRetry: () => void;
+}) {
   const [msgIndex, setMsgIndex] = useState(0);
 
   const messages = [
@@ -130,33 +138,64 @@ function EvaluatingView() {
   ];
 
   useEffect(() => {
+    if (error) return; // Hata varken mesajları döndürme
+    
     // Her 5 saniyede bir mesajı değiştir (en son mesaja gelince durur)
     const interval = setInterval(() => {
       setMsgIndex((prev) => Math.min(prev + 1, messages.length - 1));
     }, 5000);
     return () => clearInterval(interval);
-  }, [messages.length]);
+  }, [messages.length, error]);
 
   return (
     <main className="relative min-h-[100dvh] w-full flex items-center justify-center px-4">
       <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-        className="text-center flex flex-col items-center gap-6">
-        <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
-          className="w-16 h-16 rounded-full border-4 border-violet-500/30 border-t-violet-500" />
-        <div className="flex flex-col gap-2 min-h-[80px]">
-          <h2 className="text-2xl font-bold text-white">Değerlendiriliyor...</h2>
-          <AnimatePresence mode="wait">
-            <motion.p
-              key={msgIndex}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="text-white/60 text-sm font-medium"
-            >
-              {messages[msgIndex]}
-            </motion.p>
-          </AnimatePresence>
-        </div>
+        className="text-center flex flex-col items-center gap-6 max-w-sm w-full">
+        
+        {error ? (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col items-center gap-6">
+            <div className="w-16 h-16 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center">
+              <span className="text-3xl">⚠️</span>
+            </div>
+            <div className="flex flex-col gap-2">
+              <h2 className="text-xl font-bold text-white">Değerlendirme Hatası</h2>
+              <p className="text-white/60 text-sm leading-relaxed">
+                {error.includes("503") || error.includes("quota") 
+                  ? "AI şu an çok yoğun olduğu için cevapları puanlayamadı." 
+                  : "AI değerlendirmesi sırasında teknik bir aksaklık oluştu."}
+              </p>
+            </div>
+            
+            {isHost ? (
+              <Button variant="primary" onClick={onRetry} className="w-full py-4 mt-2">
+                Tekrar Dene
+              </Button>
+            ) : (
+              <p className="text-violet-400 text-xs font-medium animate-pulse">
+                Host'un tekrar denemesi bekleniyor...
+              </p>
+            )}
+          </motion.div>
+        ) : (
+          <>
+            <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 2, ease: "linear" }}
+              className="w-16 h-16 rounded-full border-4 border-violet-500/30 border-t-violet-500" />
+            <div className="flex flex-col gap-2 min-h-[80px]">
+              <h2 className="text-2xl font-bold text-white">Değerlendiriliyor...</h2>
+              <AnimatePresence mode="wait">
+                <motion.p
+                  key={msgIndex}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="text-white/60 text-sm font-medium"
+                >
+                  {messages[msgIndex]}
+                </motion.p>
+              </AnimatePresence>
+            </div>
+          </>
+        )}
       </motion.div>
     </main>
   );
@@ -177,6 +216,7 @@ export default function GamePage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [answers, setAnswers] = useState<CategoryAnswers>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [evalError, setEvalError] = useState<string | null>(null);
 
   // Refs — polling closure'da stale olmadan kullanmak için
   const gameStateRef = useRef<GameState>("waiting");
@@ -228,35 +268,40 @@ export default function GamePage() {
         if (r.currentPhase === "evaluating" && gs === "playing" && !evaluatingRef.current) {
           evaluatingRef.current = true;
           setGameStateSync("evaluating");
+          setEvalError(null);
 
           if (isHostPlayer && r.answers) {
-            const kullanicilar = r.players.map((p) => ({
-              nick: p.nick,
-              cevaplar: r.answers?.[p.id] ?? {},
-            }));
-            const input: GeminiInput = {
-              tur_harfi: r.currentLetter ?? "",
-              kategoriler: r.settings.categories,
-              kullanicilar,
+            const startEvaluation = async () => {
+              const kullanicilar = r.players.map((p) => ({
+                nick: p.nick,
+                cevaplar: (r.answers as PlayerAnswers)?.[p.id] ?? {},
+              }));
+              const input: GeminiInput = {
+                tur_harfi: r.currentLetter ?? "",
+                kategoriler: r.settings.categories,
+                kullanicilar,
+              };
+
+              try {
+                const evalRes = await evaluateRound(input);
+                if (evalRes.success) {
+                  const evalResult = evalRes.result;
+                  const playerScores = evalRes.result.degerlendirme.map((p) => ({ nick: p.nick, score: p.toplam }));
+                  await updateScores(code, evalResult, playerScores);
+                } else {
+                  console.warn("[Game] AI hata:", evalRes.error);
+                  setEvalError(evalRes.error);
+                  // Hata durumunda evaluatingRef.current = false yapıyoruz ki tekrar dene butonuna basınca başlasın
+                  evaluatingRef.current = false;
+                }
+              } catch (err: any) {
+                console.error("[Game] evaluateRound exception:", err);
+                setEvalError(err?.message || "Beklenmedik bir hata oluştu.");
+                evaluatingRef.current = false;
+              }
             };
 
-            let evalResult = null;
-            let playerScores = r.players.map((p) => ({ nick: p.nick, score: 0 }));
-
-            try {
-              const evalRes = await evaluateRound(input);
-              if (evalRes.success) {
-                evalResult = evalRes.result;
-                playerScores = evalRes.result.degerlendirme.map((p) => ({ nick: p.nick, score: p.toplam }));
-              } else {
-                console.warn("[Game] AI hata:", evalRes.error);
-              }
-            } catch (err) {
-              console.error("[Game] evaluateRound exception:", err);
-            }
-
-            // Her durumda updateScores çağır — faza geçiş garantili
-            await updateScores(code, evalResult, playerScores);
+            startEvaluation();
           }
         }
 
@@ -351,7 +396,16 @@ export default function GamePage() {
 
   // ── EVALUATING ──
   if (gameState === "evaluating") {
-    return <EvaluatingView />;
+    return (
+      <EvaluatingView 
+        error={evalError} 
+        isHost={localPlayer?.id === room?.hostId}
+        onRetry={() => {
+          setEvalError(null);
+          evaluatingRef.current = false; // Polling döngüsü 'evaluating' fazını tekrar algılayıp startEvaluation tetiklesin
+        }}
+      />
+    );
   }
 
   // ── ROUND OVER (tur arası — artık "results" sayfasına gidildiği için bu kısım pratikte çalışmayacak ancak kalsın) ──
